@@ -6,6 +6,7 @@ package goph
 import (
 	"context"
 	"fmt"
+	"github.com/zp857/goutil/networkx"
 	"io"
 	"net"
 	"os"
@@ -30,6 +31,8 @@ type Config struct {
 	Timeout        time.Duration
 	Callback       ssh.HostKeyCallback
 	BannerCallback ssh.BannerCallback
+
+	Proxy string
 }
 
 // DefaultTimeout is the timeout of ssh client connection.
@@ -83,13 +86,23 @@ func NewConn(config *Config) (c *Client, err error) {
 
 // Dial starts a client connection to SSH server based on config.
 func Dial(proto string, c *Config) (*ssh.Client, error) {
-	return ssh.Dial(proto, net.JoinHostPort(c.Addr, fmt.Sprint(c.Port)), &ssh.ClientConfig{
+	addr := net.JoinHostPort(c.Addr, fmt.Sprint(c.Port))
+	config := &ssh.ClientConfig{
 		User:            c.User,
 		Auth:            c.Auth,
 		Timeout:         c.Timeout,
 		HostKeyCallback: c.Callback,
 		BannerCallback:  c.BannerCallback,
-	})
+	}
+	conn, err := networkx.NewConn(addr, c.Proxy, c.Timeout)
+	if err != nil {
+		return nil, err
+	}
+	cc, chans, reqs, err := ssh.NewClientConn(conn, addr, config)
+	if err != nil {
+		return nil, err
+	}
+	return ssh.NewClient(cc, chans, reqs), nil
 }
 
 // Run starts a new SSH session and runs the cmd, it returns CombinedOutput and err if any.
