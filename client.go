@@ -32,7 +32,14 @@ type Config struct {
 	Callback       ssh.HostKeyCallback
 	BannerCallback ssh.BannerCallback
 
-	Proxy string
+	Proxy       string
+	JumpOptions JumpOptions
+}
+
+type JumpOptions struct {
+	Addr     string
+	User     string // 账号
+	Password string // 密码
 }
 
 // DefaultTimeout is the timeout of ssh client connection.
@@ -94,7 +101,13 @@ func Dial(proto string, c *Config) (*ssh.Client, error) {
 		HostKeyCallback: c.Callback,
 		BannerCallback:  c.BannerCallback,
 	}
-	conn, err := networkx.NewConn(addr, c.Proxy, c.Timeout)
+	var conn net.Conn
+	var err error
+	if c.JumpOptions.Addr != "" {
+		conn, err = networkx.NewJumpProxy(c.JumpOptions.Addr, c.JumpOptions.User, c.JumpOptions.Password, addr)
+	} else {
+		conn, err = networkx.NewConn(addr, c.Proxy, c.Timeout)
+	}
 	if err != nil {
 		return nil, err
 	}
